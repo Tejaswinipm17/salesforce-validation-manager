@@ -15,6 +15,17 @@ app.get("/", (req, res) => {
 
 app.use("/api/salesforce", salesforceRoutes);
 
+// Salesforce OAuth callback redirect
+app.get("/auth/callback", (req, res) => {
+  const code = req.query.code;
+
+  if (!code) {
+    return res.status(400).send("Authorization code not found");
+  }
+
+  res.redirect(`/api/salesforce/callback?code=${code}`);
+});
+
 app.listen(process.env.PORT || 5000, () => {
-  console.log("Server running on port 5000");
+  console.log(`Server running on port ${process.env.PORT || 5000}`);
 });

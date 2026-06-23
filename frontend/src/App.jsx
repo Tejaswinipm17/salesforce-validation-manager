@@ -11,13 +11,20 @@ function App() {
   };
 
   const loadRules = async () => {
-    const response = await fetch(
-      "http://localhost:5000/api/salesforce/validation-rules"
-    );
+  const response = await fetch(
+    "http://localhost:5000/api/salesforce/validation-rules"
+  );
 
-    const data = await response.json();
-    setRules(data);
-  };
+  const data = await response.json();
+
+  setRules(
+    data.map(rule => ({
+      id: rule.Id,
+      name: rule.ValidationName,
+      active: rule.Active
+    }))
+  );
+};
 
   const toggleRule = (index) => {
     const updatedRules = [...rules];
