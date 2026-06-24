@@ -1,8 +1,9 @@
 const express = require("express");
 console.log("LOADED SALESFORCE ROUTES FILE");
+
 const axios = require("axios");
 const crypto = require("crypto");
-const jsforce = require("jsforce")
+const jsforce = require("jsforce");
 
 const router = express.Router();
 
@@ -11,88 +12,87 @@ let accessToken = "";
 let instanceUrl = "";
 let conn = null;
 
+/* ---------------- STATUS ---------------- */
 router.get("/status", (req, res) => {
-res.json({
-success: true,
-message: "Salesforce route working"
-});
+  res.json({
+    success: true,
+    message: "Salesforce route working"
+  });
 });
 
+/* ---------------- LOGIN ---------------- */
 router.get("/login", (req, res) => {
-codeVerifier = crypto.randomBytes(32).toString("hex");
+  codeVerifier = crypto.randomBytes(32).toString("hex");
 
-const codeChallenge = crypto
-  .createHash("sha256")
-  .update(codeVerifier)
-  .digest("base64")
-  .replace(/\+/g, "-")
-  .replace(/\//g, "_")
-  .replace(/=/g, "");
+  const codeChallenge = crypto
+    .createHash("sha256")
+    .update(codeVerifier)
+    .digest("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
 
-const authUrl =
-  `${process.env.SF_LOGIN_URL}/services/oauth2/authorize` +
-  `?response_type=code` +
-  `&client_id=${process.env.SF_CLIENT_ID}` +
-  `&redirect_uri=${encodeURIComponent(process.env.SF_CALLBACK_URL)}` +
-  `&code_challenge=${codeChallenge}` +
-  `&code_challenge_method=S256`;
+  const authUrl =
+    `${process.env.SF_LOGIN_URL}/services/oauth2/authorize` +
+    `?response_type=code` +
+    `&client_id=${process.env.SF_CLIENT_ID}` +
+    `&redirect_uri=${encodeURIComponent(process.env.SF_CALLBACK_URL)}` +
+    `&code_challenge=${codeChallenge}` +
+    `&code_challenge_method=S256`;
 
-res.redirect(authUrl);
+  res.redirect(authUrl);
 });
 
+/* ---------------- CALLBACK ---------------- */
 router.get("/callback", async (req, res) => {
-try {
-const { code } = req.query;
-
-const tokenResponse = await axios.post(
-  `${process.env.SF_LOGIN_URL}/services/oauth2/token`,
-  null,
-  {
-    params: {
-      grant_type: "authorization_code",
-      code,
-      client_id: process.env.SF_CLIENT_ID,
-      client_secret: process.env.SF_CLIENT_SECRET,
-      redirect_uri: process.env.SF_CALLBACK_URL,
-      code_verifier: codeVerifier
-    }
-  }
-);
-
-accessToken = tokenResponse.data.access_token;
-instanceUrl = tokenResponse.data.instance_url;
-conn = new jsforce.Connection({ instanceUrl, accessToken });
-
-console.log("TOKEN SAVED:", accessToken ? "YES" : "NO");
-
-console.log("INSTANCE URL:", instanceUrl);
-
-res.json({
-  success: true,
-  message: "Salesforce Login Successful",
-  instance_url: instanceUrl
-});
-
-} catch (error){
-  console.error(error.response?.data || error.message);
-
-  res.status(500).json({
-    success: false,
-    error: error.response?.data || error.message
-});
-
-}
-});
-
-router.get("/validation-rules", async (req, res) => {
   try {
+    const { code } = req.query;
 
-  if (!accessToken){
-    return res.status(401).json({
-      success:false,
-      message: "please login to salesforce first"
+    const tokenResponse = await axios.post(
+      `${process.env.SF_LOGIN_URL}/services/oauth2/token`,
+      null,
+      {
+        params: {
+          grant_type: "authorization_code",
+          code,
+          client_id: process.env.SF_CLIENT_ID,
+          client_secret: process.env.SF_CLIENT_SECRET,
+          redirect_uri: process.env.SF_CALLBACK_URL,
+          code_verifier: codeVerifier
+        }
+      }
+    );
+
+    accessToken = tokenResponse.data.access_token;
+    instanceUrl = tokenResponse.data.instance_url;
+
+    conn = new jsforce.Connection({
+      instanceUrl,
+      accessToken
+    });
+
+    res.json({
+      success: true,
+      message: "Salesforce Login Successful",
+      instance_url: instanceUrl
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.response?.data || error.message
     });
   }
+});
+
+/* ---------------- GET VALIDATION RULES ---------------- */
+router.get("/validation-rules", async (req, res) => {
+  try {
+    if (!accessToken) {
+      return res.status(401).json({
+        success: false,
+        message: "Please login first"
+      });
+    }
 
     const response = await axios.get(
       `${instanceUrl}/services/data/v64.0/tooling/query`,
@@ -102,9 +102,7 @@ router.get("/validation-rules", async (req, res) => {
         },
         params: {
           q: `
-            SELECT Id,
-                   ValidationName,
-                   Active,
+            SELECT Id, ValidationName, Active,
                    EntityDefinition.QualifiedApiName
             FROM ValidationRule
           `
@@ -113,52 +111,17 @@ router.get("/validation-rules", async (req, res) => {
     );
 
     res.json(response.data.records);
-
   } catch (error) {
-
-    console.error(
-      error.response?.data || error.message
-    );
-
     res.status(500).json({
       success: false,
-      error:
-        error.response?.data || error.message
+      error: error.response?.data || error.message
     });
-
   }
 });
 
+/* ---------------- CONNECTION TEST ---------------- */
 router.get("/connection-test", async (req, res) => {
-try {
-
-if (!conn) {
-  return res.status(401).json({
-    success: false,
-    message: "Please login first"
-  });
-}
-
-const identity = await conn.identity();
-
-res.json({
-  success: true,
-  username: identity.username,
-  organiizationid: identity.organization_id
-});
-} catch(error) {
-
-res.status(500).json({
-  success: false,
-  error: error.message
-});
-
-}
-});
-
-router.get("/rule-details/:name", async (req, res) => {
   try {
-
     if (!conn) {
       return res.status(401).json({
         success: false,
@@ -166,35 +129,92 @@ router.get("/rule-details/:name", async (req, res) => {
       });
     }
 
-    const ruleName = req.params.name;
+    const identity = await conn.identity();
+
+    res.json({
+      success: true,
+      username: identity.username,
+      organizationId: identity.organization_id
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/* ---------------- RULE DETAILS ---------------- */
+router.get("/rule-details/:name", async (req, res) => {
+  try {
+    if (!conn) {
+      return res.status(401).json({
+        success: false,
+        message: "Please login first"
+      });
+    }
 
     const result = await conn.tooling.query(
-      `SELECT Id,
-              ValidationName,
-              Active,
-              ErrorMessage
+      `SELECT Id, ValidationName, Active, ErrorMessage
        FROM ValidationRule
-       WHERE ValidationName='${ruleName}'`
+       WHERE ValidationName='${req.params.name}'`
     );
 
     res.json(result.records);
-
   } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/* ---------------- TOGGLE VALIDATION RULE ---------------- */
+router.patch("/toggle-rule/:id", async (req, res) => {
+  try {
+    if (!conn) {
+      return res.status(401).json({
+        success: false,
+        message: "Please login first"
+      });
+    }
+
+    const ruleId = req.params.id;
+    const { active } = req.body;
+
+    if (active === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "active (true/false) is required"
+      });
+    }
+
+    const result = await conn.tooling.sobject("ValidationRule").update({
+      Id: ruleId,
+      Active: active
+    });
+
+    res.json({
+      success: true,
+      message: `Rule ${active ? "Activated" : "Deactivated"} successfully`,
+      result
+    });
+  } catch (error) {
+    console.error("Toggle error:", error);
 
     res.status(500).json({
       success: false,
       error: error.message
     });
-
   }
 });
 
+/* ---------------- TEST ROUTE ---------------- */
 router.get("/test123", (req, res) => {
   res.json({
     success: true,
-    message: "test route working"
+    message: "Salesforce route is working 🚀"
   });
 });
 
 module.exports = router;
-

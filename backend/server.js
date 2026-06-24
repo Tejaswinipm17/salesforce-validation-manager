@@ -2,12 +2,23 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 
+console.log("🔥 BACKEND STARTED FROM:", __dirname);
+
+
 const salesforceRoutes = require("./routes/salesforce");
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: "*"
+}));
+
 app.use(express.json());
+
+app.use((req, res, next) => {
+  console.log("HIT:", req.method, req.url);
+  next();
+});
 
 app.get("/", (req, res) => {
   res.send("Salesforce Validation Manager Backend Running");
@@ -15,17 +26,11 @@ app.get("/", (req, res) => {
 
 app.use("/api/salesforce", salesforceRoutes);
 
-// Salesforce OAuth callback redirect
-app.get("/auth/callback", (req, res) => {
-  const code = req.query.code;
+const PORT = process.env.PORT || 5000;
 
-  if (!code) {
-    return res.status(400).send("Authorization code not found");
-  }
-
-  res.redirect(`/api/salesforce/callback?code=${code}`);
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
 
-app.listen(process.env.PORT || 5000, () => {
-  console.log(`Server running on port ${process.env.PORT || 5000}`);
-});
+
+
