@@ -1,93 +1,51 @@
 import { useState } from "react";
 
+const API = "http://localhost:5000/api/salesforce";
+
 function App() {
-const [rules, setRules] = useState([]);
+  const [rules, setRules] = useState([]);
 
-const loginToSalesforce = () => {
-window.open(
-"http://localhost:5000/api/salesforce/login",
-"_self"
-);
-};
+  const login = () => {
+    window.location.href = `${API}/login`;
+  };
 
-const loadRules = async () => {
-try {
-const response = await fetch(
-"http://localhost:5000/api/salesforce/validation-rules"
-);
+  const getRules = async () => {
+    const res = await fetch(`${API}/validation-rules`);
+    const data = await res.json();
+    setRules(data);
+  };
 
+  return (
+    <div style={{ padding: 20 }}>
+      <h2>Salesforce Validation Manager</h2>
 
-  const data = await response.json();
+      <button onClick={login}>Login to Salesforce</button>
 
-  setRules(
-    data.map((rule) => ({
-      id: rule.Id,
-      name: rule.ValidationName,
-      active: rule.Active,
-    }))
-  );
-} catch (error) {
-  console.error(error);
-  alert("Error loading validation rules");
-}
-
-
-};
-
-const deployChanges = () => {
-alert("Deploying changes to Salesforce...");
-};
-
-const toggleRule = (index) => {
-const updatedRules = [...rules];
-updatedRules[index].active = !updatedRules[index].active;
-setRules(updatedRules);
-};
-
-return (
-<div style={{ padding: "20px" }}> <h1>Salesforce Validation Manager</h1>
-
-  <button onClick={loginToSalesforce}>
-    Login With Salesforce
-  </button>
-
-  <br /><br />
-
-  <button onClick={loadRules}>
-    Get Validation Rules
-  </button>
-
-  <br /><br />
-
-  <button onClick={deployChanges}>
-    Deploy Changes
-  </button>
-
-  <br /><br />
-
-  {rules.map((rule, index) => (
-    <div
-      key={rule.id}
-      style={{
-        border: "1px solid #ccc",
-        padding: "10px",
-        marginBottom: "10px",
-      }}
-    >
-      <h3>{rule.name}</h3>
-
-      <p>
-        Status: {rule.active ? "Active" : "Inactive"}
-      </p>
-
-      <button onClick={() => toggleRule(index)}>
-        {rule.active ? "Deactivate" : "Activate"}
+      <button onClick={getRules} style={{ marginLeft: 10 }}>
+        Get Validation Rules
       </button>
-    </div>
-  ))}
-</div>
 
-);
+      <table border="1" cellPadding="10" style={{ marginTop: 20 }}>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Object</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {rules.map((r) => (
+            <tr key={r.Id}>
+              <td>{r.ValidationName}</td>
+              <td>{r.EntityDefinition?.QualifiedApiName}</td>
+              <td>{r.Active ? "Active" : "Inactive"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 export default App;

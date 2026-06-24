@@ -154,11 +154,15 @@ router.get("/rule-details/:name", async (req, res) => {
       });
     }
 
-    const result = await conn.tooling.query(
-      `SELECT Id, ValidationName, Active, ErrorMessage
-       FROM ValidationRule
-       WHERE ValidationName='${req.params.name}'`
-    );
+  const result = await conn.tooling.query(
+  `SELECT Id,
+          ValidationName,
+          Active,
+          ErrorMessage,
+          ValidationFormula
+   FROM ValidationRule
+   WHERE ValidationName='${req.params.name}'`
+);
 
     res.json(result.records);
   } catch (error) {
@@ -215,6 +219,28 @@ router.get("/test123", (req, res) => {
     success: true,
     message: "Salesforce route is working 🚀"
   });
+});
+
+router.get("/rule-metadata/:id", async (req, res) => {
+  try {
+    if (!conn) {
+      return res.status(401).json({
+        success: false,
+        message: "Please login first"
+      });
+    }
+
+    const result = await conn.tooling.sobject("ValidationRule")
+      .retrieve(req.params.id);
+
+    res.json(result);
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
 });
 
 module.exports = router;
