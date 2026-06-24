@@ -173,7 +173,6 @@ router.get("/rule-details/:name", async (req, res) => {
   }
 });
 
-/* ---------------- TOGGLE VALIDATION RULE ---------------- */
 router.patch("/toggle-rule/:id", async (req, res) => {
   try {
     if (!conn) {
@@ -186,56 +185,33 @@ router.patch("/toggle-rule/:id", async (req, res) => {
     const ruleId = req.params.id;
     const { active } = req.body;
 
-    if (active === undefined) {
-      return res.status(400).json({
-        success: false,
-        message: "active (true/false) is required"
-      });
-    }
+    // Get existing validation rule
+    const rule = await conn.tooling
+      .sobject("ValidationRule")
+      .retrieve(ruleId);
 
-    const result = await conn.tooling.sobject("ValidationRule").update({
-      Id: ruleId,
-      Active: active
-    });
+    // Update metadata
+    const result = await conn.tooling
+      .sobject("ValidationRule")
+      .update({
+        Id: ruleId,
+        Metadata: {
+          ...rule.Metadata,
+          active: active
+        }
+      });
 
     res.json({
       success: true,
-      message: `Rule ${active ? "Activated" : "Deactivated"} successfully`,
+      message: active
+        ? "Rule Activated Successfully"
+        : "Rule Deactivated Successfully",
       result
     });
+
   } catch (error) {
     console.error("Toggle error:", error);
 
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-/* ---------------- TEST ROUTE ---------------- */
-router.get("/test123", (req, res) => {
-  res.json({
-    success: true,
-    message: "Salesforce route is working 🚀"
-  });
-});
-
-router.get("/rule-metadata/:id", async (req, res) => {
-  try {
-    if (!conn) {
-      return res.status(401).json({
-        success: false,
-        message: "Please login first"
-      });
-    }
-
-    const result = await conn.tooling.sobject("ValidationRule")
-      .retrieve(req.params.id);
-
-    res.json(result);
-
-  } catch (error) {
     res.status(500).json({
       success: false,
       error: error.message
