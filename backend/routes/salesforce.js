@@ -1,12 +1,15 @@
 const express = require("express");
+console.log("LOADED SALESFORCE ROUTES FILE");
 const axios = require("axios");
 const crypto = require("crypto");
+const jsforce = require("jsforce")
 
 const router = express.Router();
 
 let codeVerifier = "";
 let accessToken = "";
 let instanceUrl = "";
+let conn = null;
 
 router.get("/status", (req, res) => {
 res.json({
@@ -58,9 +61,10 @@ const tokenResponse = await axios.post(
 
 accessToken = tokenResponse.data.access_token;
 instanceUrl = tokenResponse.data.instance_url;
+conn = new jsforce.Connection({ instanceUrl, accessToken });
 
 console.log("TOKEN SAVED:", accessToken ? "YES" : "NO");
-console.log("TOKEN LENGTH:", accessToken.length);
+
 console.log("INSTANCE URL:", instanceUrl);
 
 res.json({
@@ -82,6 +86,13 @@ res.json({
 
 router.get("/validation-rules", async (req, res) => {
   try {
+
+  if (!accessToken){
+    return res.status(401).json({
+      success:false,
+      message: "please login to salesforce first"
+    });
+  }
 
     const response = await axios.get(
       `${instanceUrl}/services/data/v64.0/tooling/query`,
@@ -117,5 +128,73 @@ router.get("/validation-rules", async (req, res) => {
 
   }
 });
+
+router.get("/connection-test", async (req, res) => {
+try {
+
+if (!conn) {
+  return res.status(401).json({
+    success: false,
+    message: "Please login first"
+  });
+}
+
+const identity = await conn.identity();
+
+res.json({
+  success: true,
+  username: identity.username,
+  organiizationid: identity.organization_id
+});
+} catch(error) {
+
+res.status(500).json({
+  success: false,
+  error: error.message
+});
+
+}
+});
+
+router.get("/rule-details/:name", async (req, res) => {
+  try {
+
+    if (!conn) {
+      return res.status(401).json({
+        success: false,
+        message: "Please login first"
+      });
+    }
+
+    const ruleName = req.params.name;
+
+    const result = await conn.tooling.query(
+      `SELECT Id,
+              ValidationName,
+              Active,
+              ErrorMessage
+       FROM ValidationRule
+       WHERE ValidationName='${ruleName}'`
+    );
+
+    res.json(result.records);
+
+  } catch (error) {
+
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+
+  }
+});
+
+router.get("/test123", (req, res) => {
+  res.json({
+    success: true,
+    message: "test route working"
+  });
+});
+
 module.exports = router;
 
