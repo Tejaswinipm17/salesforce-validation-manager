@@ -1,49 +1,74 @@
 import { useState } from "react";
-
-const API = "http://localhost:5000/api/salesforce";
+import axios from "axios";
+import "./App.css";
 
 function App() {
   const [rules, setRules] = useState([]);
 
   const login = () => {
-    window.location.href = `${API}/login`;
+    window.location.href =
+      "https://salesforce-validation-manager-djva.onrender.com/api/salesforce/login";
   };
 
-  const getRules = async () => {
-    const res = await fetch(`${API}/validation-rules`);
-    const data = await res.json();
-    setRules(data);
+  const fetchRules = async () => {
+    const res = await axios.get(
+      "https://salesforce-validation-manager-djva.onrender.com/api/salesforce/validation-rules"
+    );
+    setRules(res.data);
+  };
+
+  const toggleRule = async (id, active) => {
+    await axios.patch(
+      `https://salesforce-validation-manager-djva.onrender.com/api/salesforce/toggle-rule/${id}`,
+      { active: !active }
+    );
+    fetchRules();
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>Salesforce Validation Manager</h2>
+    <div className="container">
 
-      <button onClick={login}>Login to Salesforce</button>
+      <>
+  <h1 className="main-title">
+  ☁ Salesforce Validation Manager
+</h1>
 
-      <button onClick={getRules} style={{ marginLeft: 10 }}>
-        Get Validation Rules
-      </button>
+  <p className="subtitle">
+    Manage Validation Rules Across Your Salesforce Org
+  </p>
+</>
 
-      <table border="1" cellPadding="10" style={{ marginTop: 20 }}>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Object</th>
-            <th>Status</th>
-          </tr>
-        </thead>
+      <div className="button-group">
+        <button className="btn login" onClick={login}>
+          Login with Salesforce
+        </button>
 
-        <tbody>
-          {rules.map((r) => (
-            <tr key={r.Id}>
-              <td>{r.ValidationName}</td>
-              <td>{r.EntityDefinition?.QualifiedApiName}</td>
-              <td>{r.Active ? "Active" : "Inactive"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+        <button className="btn" onClick={fetchRules}>
+          Get Validation Rules
+        </button>
+      </div>
+
+      <div className="card-container">
+        {rules.map((rule) => (
+          <div className="card" key={rule.Id}>
+            <h2>{rule.ValidationName}</h2>
+
+            <p>
+              Status:{" "}
+              <span className={rule.Active ? "active" : "inactive"}>
+                {rule.Active ? "ACTIVE" : "INACTIVE"}
+              </span>
+            </p>
+
+            <button
+              className="btn toggle"
+              onClick={() => toggleRule(rule.Id, rule.Active)}
+            >
+              {rule.Active ? "Deactivate" : "Activate"}
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
